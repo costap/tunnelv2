@@ -1,0 +1,14 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/costap/tunnelv2/internal/pkg/proto
+plugins:
+  - name: go
+    out: internal/pkg/proto
+    opt: paths=source_relative
+  - name: go-grpc
+    out: internal/pkg/proto
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false

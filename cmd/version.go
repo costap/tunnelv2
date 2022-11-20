@@ -24,3 +24,7 @@ func init() {
 func versionRun(cmd *cobra.Command, args []string) {
 	fmt.Println(Version)
 }
+
+func GetVersion(full bool) string {
+	return Version
+}
