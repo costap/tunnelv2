@@ -1,14 +1,16 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	tunnelv1 "github.com/costap/tunnelv2/internal/pkg/proto/tunnel/v1"
-	"github.com/costap/tunnelv2/internal/pkg/tcp"
-	"github.com/costap/tunnelv2/internal/pkg/tunnel"
+	"github.com/costap/tunnelv2/internal/pkg/server/tcp"
+	tunnel2 "github.com/costap/tunnelv2/internal/pkg/server/tunnel"
 	"github.com/jzelinskie/cobrautil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"net"
 	"os"
 	"os/signal"
@@ -42,8 +44,8 @@ func init() {
 
 type server struct {
 	logger        *zap.Logger
-	tunnelService *tunnel.Service
-	controller    *tunnel.Controller
+	tunnelService *tunnel2.Service
+	controller    *tunnel2.Controller
 
 	grpcServer *grpc.Server
 	tcpServer  *tcp.Server
@@ -106,8 +108,8 @@ func serveRun(cmd *cobra.Command, args []string) {
 	logger := newZapLogger(cobrautil.MustGetBool(cmd, "debug"))
 	logger.Info("Server is starting...", zap.String("Version", GetVersion(false)))
 
-	ts := tunnel.NewService(logger)
-	s := server{logger: logger, tunnelService: ts, controller: tunnel.NewController(logger, ts)}
+	ts := tunnel2.NewService(logger)
+	s := server{logger: logger, tunnelService: ts, controller: tunnel2.NewController(logger, ts)}
 
 	tcpPort := cobrautil.MustGetInt(cmd, "tcp-port")
 	grpcPort := cobrautil.MustGetInt(cmd, "grpc-port")
@@ -145,4 +147,20 @@ func newZapLogger(debug bool) *zap.Logger {
 			return lvl > zapcore.DebugLevel
 		}))
 	return zap.New(core)
+}
+
+func loadTLSCredentials() (credentials.TransportCredentials, error) {
+	// Load server's certificate and private key
+	serverCert, err := tls.LoadX509KeyPair("cert/server-cert.pem", "cert/server-key.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the credentials and return it
+	config := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.NoClientCert,
+	}
+
+	return credentials.NewTLS(config), nil
 }
