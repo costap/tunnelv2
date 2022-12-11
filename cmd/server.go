@@ -8,7 +8,6 @@ import (
 	tunnel2 "github.com/costap/tunnelv2/internal/pkg/server/tunnel"
 	"github.com/jzelinskie/cobrautil"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"net"
@@ -63,7 +62,16 @@ func (s *server) startGRPC(address string, wg *sync.WaitGroup) {
 		return
 	}
 
-	s.grpcServer = grpc.NewServer()
+	tlsCredentials, err := loadServerTLSCredentials()
+	if err != nil {
+		s.logger.Fatal("cannot load TLS credentials: ", zap.Error(err))
+	}
+
+	s.grpcServer = grpc.NewServer(
+		grpc.Creds(tlsCredentials),
+		//grpc.UnaryInterceptor(interceptor.Unary()),
+		//grpc.StreamInterceptor(interceptor.Stream()),
+	)
 	tunnelv1.RegisterTunnelServiceServer(s.grpcServer, s.tunnelService)
 
 	s.logger.Info("Starting gRPC server", zap.String("address", listener.Addr().String()))
@@ -123,33 +131,7 @@ func serveRun(cmd *cobra.Command, args []string) {
 	<-sigs
 }
 
-func newZapLogger(debug bool) *zap.Logger {
-	zap.NewProductionConfig()
-	encoderConfig := zapcore.EncoderConfig{
-		LevelKey:       "level",
-		MessageKey:     "msg",
-		TimeKey:        "time",
-		NameKey:        "logger",
-		CallerKey:      "file",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.RFC3339TimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-		EncodeName:     zapcore.FullNameEncoder,
-	}
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), zapcore.AddSync(os.Stdout),
-		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-			if debug {
-				return true
-			}
-			return lvl > zapcore.DebugLevel
-		}))
-	return zap.New(core)
-}
-
-func loadTLSCredentials() (credentials.TransportCredentials, error) {
+func loadServerTLSCredentials() (credentials.TransportCredentials, error) {
 	// Load server's certificate and private key
 	serverCert, err := tls.LoadX509KeyPair("cert/server-cert.pem", "cert/server-key.pem")
 	if err != nil {

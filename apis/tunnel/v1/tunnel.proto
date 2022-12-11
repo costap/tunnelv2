@@ -2,14 +2,34 @@ syntax = "proto3";
 
 package tunnel.v1;
 
+enum RequestType {
+    // Request to open a tunnel
+    OPEN = 0;
+    // Request to close a tunnel
+    CLOSE = 2;
+    // Response to a DATA request
+    DATA_RESPONSE = 5;
+}
+
+enum ResponseType {
+    // New tunnel connection
+    OPEN_CONNECTION = 0;
+    // Received data from connection
+    DATA_RECEIVE = 1;
+    // Closed tunnel connection
+    CLOSE_CONNECTION = 2;
+}
+
 message TunnelRequest {
   string connection_id = 1;
-  bytes data = 2;
+  RequestType type = 2;
+  bytes data = 3;
 }
 
 message TunnelResponse {
   string connection_id = 1;
-  bytes data = 2;
+  ResponseType type = 2;
+  bytes data = 3;
 }
 
 service TunnelService {
